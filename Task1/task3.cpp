@@ -46,10 +46,12 @@ void *threadwork(void *data)
         pthread_mutex_lock( &manager->taskqueuemutex );
         if (!manager->tasks.empty())
         {
+            //printf("%i \n",(int)pthread_self());
             Task tk = manager->tasks.front();
             manager->tasks.pop();
             pthread_mutex_unlock( &manager->taskqueuemutex );   
-            //printf("%i <-\n", tk.start);
+            //printf("%l <-\n", pthread_self());
+            printf("%i \n",(int)pthread_self());
             simplemerge(manager->arr, tk);   
             pthread_mutex_lock( &manager->waitmutex );   
             manager->taskcounter--; 
@@ -80,14 +82,18 @@ void InitManager(TaskManager &manager, int num_of_threads)
     int t;
 	for (t = 0; t < num_of_threads; t++)
 	{
+
 		pthread_create(&manager.threads[t], NULL, threadwork, (void *)&manager);
+		
+		//sleep(1);
 	}
     
 }
 
 int main(int argc, char** argv)
-{
-    if (argc != 4)
+{   
+    const int argLim = 4;
+    if (argc != argLim)
     {
         printf("usage: ./sort <input> <output> <num of thread>");
         return 0;
@@ -95,7 +101,7 @@ int main(int argc, char** argv)
     TaskManager manager;
     InitManager(manager, atoi(argv[3]));
     manager.arr = ReadFromFile(argv[1]);
-    printarr(manager.arr);
+    //printarr(manager.arr);
     printf("start\n");
     Task begin;
     begin.start = 0;
@@ -106,7 +112,7 @@ int main(int argc, char** argv)
     //printf("a\n");
     for(int i=0; i<TaskList.size();i++)
     {
-        printf("s=%i e=%i \n",TaskList[i].start,TaskList[i].end);
+        //printf("s=%i e=%i \n",TaskList[i].start,TaskList[i].end);
     }
     //return 0;
     int k = 0;
@@ -117,7 +123,7 @@ int main(int argc, char** argv)
         int old = TaskList[k].end - TaskList[k].start;
         while (( k < TaskList.size()) && (TaskList[k].end - TaskList[k].start == old))
         {
-            printf("s=%i e=%i \n",TaskList[k].start,TaskList[k].end);
+            //printf("s=%i e=%i \n",TaskList[k].start,TaskList[k].end);
             manager.tasks.push(TaskList[k]);
             manager.taskcounter++;
             old = TaskList[k].end - TaskList[k].start;
@@ -192,11 +198,8 @@ void mergesort(vector<string> &arr, Task task, vector<Task> &res)
 {
     int len = task.end - task.start;
     //printf("len= %i ",len);
-    if (len <= 2)
-    {
-        
-    }
-    else
+    const int lenLim = 2;
+    if (len > lenLim)
     {
         
         int middle = task.start + len/2;
