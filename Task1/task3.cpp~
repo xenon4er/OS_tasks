@@ -19,7 +19,7 @@ vector<string> ReadFromFile(char* filename);
 void printarr(vector<string> &arr);
 void simplemerge(vector<string> &arr, Task task);
 void mergesort(vector<string> &arr, Task task, vector<Task> &res);
-void WriteInFile(char* filename, vector<string> arr)
+void WriteInFile(char* filename, vector<string> arr);
 
 struct TaskManager
 {
@@ -141,6 +141,10 @@ void simplemerge(vector<string> &arr, Task task)
 {
     vector<string> temp;
     task.middle = task.start + (task.end - task.start)/2;
+    
+    int pos;
+    string tmp;
+    
     int first = task.start; 
     int second = task.middle;
     while ((task.middle > first) && (task.end > second))
@@ -148,16 +152,24 @@ void simplemerge(vector<string> &arr, Task task)
         //printf("f=%i s=%i a1=%s a2=%s\n", first, second, arr[first].c_str(), arr[second].c_str());
         if (arr[first] > arr[second])
         {
-            temp.push_back(arr[second]);
+            tmp = arr[second];
+            for(int i=0; second-i>first;i++)
+            {
+                arr[second-i] = arr[second-i-1];
+            }
+            tmp[first] = tmp;
+            task.middle++;
+            //temp.push_back(arr[second]);
             second++;
         }       
         else
         {
-            temp.push_back(arr[first]);
+            //temp.push_back(arr[first]);
             first++;
         }
         //printarr(temp);
     }
+    /*
     if (task.middle > first)
     {
         for (int i = first; i < task.middle; i++)
@@ -172,6 +184,7 @@ void simplemerge(vector<string> &arr, Task task)
     {
         arr[i] = temp[i - task.start];
     }
+    */
     //printarr(temp);
 }
 
