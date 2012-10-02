@@ -1,0 +1,247 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <pthread.h>
+
+//void * MergeSort(char** , int , int );
+int Merge(char **, int, int, int);
+
+void WriteInFile(char* fname, char** arr)
+{
+  int i =0, j=0;
+  FILE *file = NULL;
+  file = fopen(fname,"w");
+  i=0;
+	while(arr[i])
+	{
+	  j = 0;
+	  while(arr[i][j])
+	  {
+	    putc((arr[i][j]),file);
+	    j++;
+	  }
+	  i++;
+	  putc('\n',file);
+	}
+  fclose(file);
+}
+
+
+struct ss
+{
+  char** Array;
+  int Start_F;
+  int End_F;
+  int Start_S;
+  int End_S;
+};
+
+/*
+void * MergeSort(void *arg)
+{
+
+  struct ss q = *(struct ss *) arg;
+  if(q.Start<q.End)
+  {
+    struct ss f;
+    f.Array = q.Array;
+    f.Start = q.Start;
+    f.End = (q.Start + q.End)/2;
+    
+    MergeSort(&f);
+    
+    
+    struct ss g;
+    g.Array = q.Array;
+    g.Start = (q.Start + q.End)/2+1;
+    g.End = q.End;
+
+    MergeSort(&g);
+    
+    //printf("0\n");
+    Merge(q.Array, q.Start, (q.Start+q.End)/2, q.End);
+  }
+  return 0;
+}
+*/
+int compare(char* First, char* Second)
+{
+  int i =0;
+  while(First[i] && Second[i])
+  {
+    if (First[i] < Second[i])
+      return 1;
+    if (First[i] > Second[i])
+      return 0;
+    if (First[i] == Second[i])
+      i++;
+  }
+  
+}
+
+
+
+void* Merge2(void *argv)
+{
+  struct ss q = *(struct ss *) argv;
+  char** RezArray;
+  RezArray = (char **)malloc(sizeof(char *)*(q.End_S-q.Start_F+1));
+  int iFlag1 = q.Start_F, iFlag2 = q.Start_S, iSumFlag = 0 , i;
+  while((iFlag1<=q.End_F)&&(iFlag2<=q.End_F))
+  {
+    if(compare(q.Array[iFlag1],q.Array[iFlag2]))
+    {
+      RezArray[iSumFlag] = q.Array[iFlag1];
+      iSumFlag++;
+      iFlag1++;
+    } else
+    {
+      RezArray[iSumFlag] = q.Array[iFlag2];
+      iSumFlag++;
+      iFlag2++;
+    }
+   }
+    for(i=iFlag1; i<q.Start_S+1; i++)
+   {
+      RezArray[iSumFlag+i-iFlag1]=q.Array[i];      
+   }
+   for(i=iFlag2; i<q.End_S+1; i++)
+   {
+      RezArray[iSumFlag+i-iFlag2]=q.Array[i];      
+   }
+   for(i=0; i<q.End_S-q.Start_F+1; i++)
+   {
+      q.Array[q.Start_F+i]=RezArray[i];
+      printf("0\n");
+   }
+   return 0;
+  }
+}
+
+/*
+int Merge(char** Array, int Start, int Middle, int End)
+{
+  char** RezArray;
+  //printf("2\n");
+  RezArray = (char **)malloc(sizeof(char *)*(End-Start+1));
+  int iFlag1, iFlag2, iSumFlag, i;
+  iSumFlag=0;
+  iFlag1=Start;
+  iFlag2=Middle+1;
+  while((iFlag1<=Middle)&&(iFlag2<=End))
+  {
+     
+     if(compare(Array[iFlag1],Array[iFlag2]))
+     {
+        RezArray[iSumFlag]=Array[iFlag1];
+        iSumFlag++;
+        iFlag1++;
+     } else 
+     {
+        RezArray[iSumFlag]=Array[iFlag2];
+        iSumFlag++;
+        iFlag2++;
+     }
+   }
+   for(i=iFlag1; i<Middle+1; i++)
+   {
+      RezArray[iSumFlag+i-iFlag1]=Array[i];      
+   }
+   for(i=iFlag2; i<End+1; i++)
+   {
+      RezArray[iSumFlag+i-iFlag2]=Array[i];      
+   }
+   for(i=0; i<End-Start+1; i++)
+   {
+      Array[Start+i]=RezArray[i];
+      //printf("0\n");
+   }
+   return 0;
+
+}
+*/
+
+int main(int argc, char* argv[])
+{
+  
+  FILE* file = NULL;
+	file = fopen(argv[1],"r");
+	
+	int arraySize = 0;
+	char** arr = NULL;
+	char* s = NULL; 
+	unsigned char ch;
+	
+	if (file == 0)
+	{
+		printf("error\n");
+		return 0;
+	}
+	
+  int i = 1;
+  int j = 1; 
+  ch = getc(file);
+  while (!feof(file))
+	{
+
+		while (ch != '\n')
+    {		
+		  i++;
+		  s = (char *)realloc(s, sizeof(char) * i);
+      s[i-2] = ch;
+      s[i - 1] = 0;
+      ch = getc(file);
+	  }
+	  j++;
+	  arr = (char **)realloc(arr, sizeof(char *) * j );
+	  arr[j-2] = s;
+    arr[j-1] = 0;
+    arraySize++;    
+	  s = NULL;
+	  i = 1;
+	  ch = getc(file);
+	  
+	}
+	fclose(file);
+  
+  int c = atoi(argv[3]);
+  
+  struct ss Str[c];  
+  
+  //int step = arraySize/c;
+  
+  //for (i=0; i<c; i++)
+  {
+    Str[0].Array = arr;
+    Str[0].Start_F = 0;
+    Str[0].End_F = arraySize/2-1;
+    Str[0].Start_S = arraySize/2;
+    Str[0].End_S = arraySize-1;
+    
+  }
+  
+  Merge2(&Str[0]);
+  
+  pthread_t threads[c];
+  
+  for (i=0; i<c;i++ )
+  {
+    //pthread_create(&threads[i], NULL, MergeSort, &Str[i]);
+    //pthread_join(threads[i], NULL);
+  }
+  
+  //i=0;
+  //char** RezArr = (char **)malloc(sizeof(char *)*arraySize);
+  //while(i<arraySize)
+  for(i=0; i<c-1;i++)
+  {
+    //Merge(arr,Str[i].Start,Str[i].End,Str[i+1].End);
+    //RezArr[i] = arr[i];
+    //i++;
+  }
+  	
+	printf("create. writing... %i",arraySize);
+	
+	WriteInFile(argv[2], Str[0].Array);
+  return 0;
+}
+

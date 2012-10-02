@@ -1,0 +1,32 @@
+#include <iostream>
+#include <string>
+#include <stdio.h>
+using namespace std;
+
+int main(int argc, char* argv[])
+{
+
+  char* fname = argv[1];
+  FILE* file;
+	file = fopen(fname,"r");
+	
+	if (file == 0)
+	{
+		printf("error\n");
+		return 0;
+	}
+
+	string s;
+	while (!feof(file))
+	{
+		getline(file,s);
+	
+	}
+	fclose(file);
+
+
+   
+	//printf("%c",arr[0]);
+	return 0;
+
+}

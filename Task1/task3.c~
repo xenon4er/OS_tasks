@@ -1,0 +1,26 @@
+#include <vector>
+#include <stdio.h>
+#include <queue>
+
+int main(int argc, char** argv)
+{
+
+    return 0;
+}
+
+vector<string> &ReadFromFile(string filename)
+{
+    vector<string> res;
+    ifstream fs;
+    //int i = 1;
+    fs.open(filename.c_str());
+    string s;
+    cout<<"start\n";
+    while (std::getline(fs, s))// >> word)
+    {
+        res.push_back(s);
+    }
+    fs.close();
+    return res;
+}
+
