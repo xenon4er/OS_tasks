@@ -19,6 +19,7 @@ vector<string> ReadFromFile(char* filename);
 void printarr(vector<string> &arr);
 void simplemerge(vector<string> &arr, Task task);
 void mergesort(vector<string> &arr, Task task, vector<Task> &res);
+void WriteInFile(char* filename, vector<string> arr)
 
 struct TaskManager
 {
@@ -130,7 +131,8 @@ int main(int argc, char** argv)
         }
     }
     //simplemerge(manager.arr, task);
-    printarr(manager.arr);    
+    printarr(manager.arr);
+    WriteInFile(argv[2], manager.arr);    
     printf("the end\n");
     return 0;
 }
@@ -192,9 +194,7 @@ void mergesort(vector<string> &arr, Task task, vector<Task> &res)
         Task right;
         right.start = middle;
         right.end = task.end;
-       /// printf("ls= %i le= %i rs= %i re= %i \n",left.start,left.end,right.start,right.end);      
-        //if (middle == 2)
-        //return;
+       
         mergesort(arr, left, res);
         mergesort(arr, right, res);                  
         res.push_back(left);
@@ -202,24 +202,6 @@ void mergesort(vector<string> &arr, Task task, vector<Task> &res)
 
     }
 }
-
-/*
-function mergesort(m)
-    var list left, right, result
-    if length(m) ≤ 1
-        return m
-    else
-        middle = length(m) / 2
-        for each x in m up to middle
-            add x to left
-        for each x in m after middle
-            add x to right
-        left = mergesort(left)
-        right = mergesort(right)
-        result = merge(left, right)
-        return result
-    end if
-*/
 
 vector<string> ReadFromFile(char* filename)
 {
@@ -234,6 +216,19 @@ vector<string> ReadFromFile(char* filename)
     }
     fs.close();
     return res;
+}
+
+void WriteInFile(char* filename, vector<string> arr)
+{
+    ofstream out;
+    out.open(filename);
+    for(int i=0; i<arr.size();i++)
+    {
+        out<<arr[i]<<endl;
+        i++;
+    }
+   
+    out.close();
 }
 
 void printarr(vector<string> &arr)

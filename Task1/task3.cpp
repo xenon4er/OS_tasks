@@ -19,6 +19,7 @@ vector<string> ReadFromFile(char* filename);
 void printarr(vector<string> &arr);
 void simplemerge(vector<string> &arr, Task task);
 void mergesort(vector<string> &arr, Task task, vector<Task> &res);
+void WriteInFile(char* filename, vector<string> arr);
 
 struct TaskManager
 {
@@ -130,7 +131,8 @@ int main(int argc, char** argv)
         }
     }
     //simplemerge(manager.arr, task);
-    printarr(manager.arr);    
+    printarr(manager.arr);
+    WriteInFile(argv[2], manager.arr);    
     printf("the end\n");
     return 0;
 }
@@ -214,6 +216,19 @@ vector<string> ReadFromFile(char* filename)
     }
     fs.close();
     return res;
+}
+
+void WriteInFile(char* filename, vector<string> arr)
+{
+    ofstream out;
+    out.open(filename);
+    for(int i=0; i<arr.size();i++)
+    {
+        out<<arr[i]<<endl;
+        i++;
+    }
+   
+    out.close();
 }
 
 void printarr(vector<string> &arr)
