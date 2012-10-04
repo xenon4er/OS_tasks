@@ -120,7 +120,6 @@ int main(int argc, char** argv)
     TaskList.push_back(begin);
     
     
-    
     int k = 0;
 
     while ( k < TaskList.size())
@@ -148,8 +147,6 @@ int main(int argc, char** argv)
 
         
     }
-    
-    //return 0;
     manager.finish = true;
     printf("before join\n");
     
@@ -157,7 +154,7 @@ int main(int argc, char** argv)
   	{
   	    printf("th %i",z);
   	    pthread_detach(manager.threads[z]);
-  		pthread_join(manager.threads[z], NULL);
+  		//pthread_join(manager.threads[z], NULL);
   	}
     
     

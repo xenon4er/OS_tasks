@@ -265,7 +265,6 @@ void WriteInFile(char* filename, vector<string> arr)
     for(int i=0; i<arr.size();i++)
     {
         out<<arr[i]<<endl;
-        i++;
     }
    
     out.close();
