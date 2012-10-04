@@ -27,6 +27,7 @@ struct TaskManager
     queue<Task> tasks;
     pthread_t *threads;
     int taskcounter;
+    
     pthread_mutex_t taskqueuemutex;
     pthread_mutex_t waitmutex;
     pthread_mutex_t finishmutex;
@@ -43,16 +44,16 @@ void *threadwork(void *data)
     TaskManager *manager = (TaskManager *)data;
     while (! manager->finish)
     {
-        pthread_mutex_lock( &manager->taskqueuemutex );
+        pthread_mutex_lock( &manager->taskqueuemutex);
         if (!manager->tasks.empty())
         {
-            //printf("%i \n",(int)pthread_self());
             Task tk = manager->tasks.front();
             manager->tasks.pop();
-            pthread_mutex_unlock( &manager->taskqueuemutex );   
-            //printf("%l <-\n", pthread_self());
-            simplemerge(manager->arr, tk);   
             printf("%i \n",(int)pthread_self());
+            pthread_mutex_unlock( &manager->taskqueuemutex );   
+            
+            simplemerge(manager->arr, tk);   
+            
             pthread_mutex_lock( &manager->waitmutex );   
             manager->taskcounter--; 
             pthread_cond_signal(&manager->taskcomplete); 
@@ -61,15 +62,15 @@ void *threadwork(void *data)
         else
         {
             pthread_mutex_unlock( &manager->taskqueuemutex );        
-            pthread_mutex_lock( &manager->finishmutex );        
-            //printf("lock zone\n");        
-            pthread_cond_wait(&manager->finishwork, &manager->finishmutex);
+            pthread_mutex_lock( &manager->finishmutex );                
+            pthread_cond_wait(&manager->finishwork, &manager->finishmutex);           
             pthread_mutex_unlock( &manager->finishmutex );
         }
     }
+    
 }
 
-void InitManager(TaskManager &manager, int num_of_threads)
+void InitManager(TaskManager &manager)
 {
     manager.waitmutex = PTHREAD_MUTEX_INITIALIZER;
     manager.taskqueuemutex = PTHREAD_MUTEX_INITIALIZER;
@@ -77,21 +78,24 @@ void InitManager(TaskManager &manager, int num_of_threads)
 
     pthread_cond_init(&manager.taskcomplete, 0);
     pthread_cond_init(&manager.finishwork, 0);    
-    manager.threads = new pthread_t[num_of_threads];
+    
+    manager.threads = new pthread_t[manager.num_of_threads];
     manager.finish = false;
     int t;
-	for (t = 0; t < num_of_threads; t++)
+	for (t = 0; t < manager.num_of_threads; t++)
 	{
 
 		pthread_create(&manager.threads[t], NULL, threadwork, (void *)&manager);
-		
-		//sleep(1);
 	}
+	
+	printf("init complited\n");
     
 }
 
 int main(int argc, char** argv)
 {   
+
+
     const int argLim = 4;
     if (argc != argLim)
     {
@@ -99,44 +103,65 @@ int main(int argc, char** argv)
         return 0;
     }
     TaskManager manager;
-    InitManager(manager, atoi(argv[3]));
+    manager.num_of_threads = atoi(argv[3]);
+    InitManager(manager);
     manager.arr = ReadFromFile(argv[1]);
-    //printarr(manager.arr);
+     
+ 
     printf("start\n");
     Task begin;
     begin.start = 0;
     begin.end = manager.arr.size();
+    
     vector<Task> TaskList;
+    
+    //create tasks
     mergesort(manager.arr,begin, TaskList);
     TaskList.push_back(begin);
-    //printf("a\n");
-    for(int i=0; i<TaskList.size();i++)
-    {
-        //printf("s=%i e=%i \n",TaskList[i].start,TaskList[i].end);
-    }
-    //return 0;
+    
+    
+    
     int k = 0;
+
     while ( k < TaskList.size())
     {
         manager.taskcounter = 0;
-        //int len = TaskList[k].end - TaskList[k].begin;
+        
         int old = TaskList[k].end - TaskList[k].start;
+        
         while (( k < TaskList.size()) && (TaskList[k].end - TaskList[k].start == old))
         {
-            //printf("s=%i e=%i \n",TaskList[k].start,TaskList[k].end);
             manager.tasks.push(TaskList[k]);
             manager.taskcounter++;
             old = TaskList[k].end - TaskList[k].start;
             k++;
         }
+        printf("%i\n",manager.taskcounter);
+        
         pthread_cond_signal(&manager.finishwork);
-        //
+        
+
         while (manager.taskcounter > 0)
         {
             pthread_cond_wait(&manager.taskcomplete, &manager.waitmutex);
         }
+
+        
     }
-    //simplemerge(manager.arr, task);
+    
+    //return 0;
+    manager.finish = true;
+    printf("before join\n");
+    
+  	for(int z = 0; z < manager.num_of_threads; z++)
+  	{
+  	    printf("th %i",z);
+  	    pthread_detach(manager.threads[z]);
+  		pthread_join(manager.threads[z], NULL);
+  	}
+    
+    
+    
     printarr(manager.arr);
     WriteInFile(argv[2], manager.arr);    
     printf("the end\n");
@@ -148,7 +173,7 @@ void simplemerge(vector<string> &arr, Task task)
     vector<string> temp;
     task.middle = task.start + (task.end - task.start)/2;
     
-    int pos;
+    
     string tmp;
     
     int first = task.start; 
@@ -173,8 +198,10 @@ void simplemerge(vector<string> &arr, Task task)
             //temp.push_back(arr[first]);
             first++;
         }
+        
         //printarr(temp);
     }
+    
     /*
     if (task.middle > first)
     {
