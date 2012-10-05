@@ -49,9 +49,9 @@ void *threadwork(void *data)
         {
             Task tk = manager->tasks.front();
             manager->tasks.pop();
-            printf("%i \n",(int)pthread_self());
-            pthread_mutex_unlock( &manager->taskqueuemutex );   
             
+            pthread_mutex_unlock( &manager->taskqueuemutex );   
+            printf("%u \n",(unsigned int)pthread_self());
             simplemerge(manager->arr, tk);   
             
             pthread_mutex_lock( &manager->waitmutex );   
@@ -62,9 +62,9 @@ void *threadwork(void *data)
         else
         {
             pthread_mutex_unlock( &manager->taskqueuemutex );        
-            pthread_mutex_lock( &manager->finishmutex );                
-            pthread_cond_wait(&manager->finishwork, &manager->finishmutex);           
-            pthread_mutex_unlock( &manager->finishmutex );
+            //pthread_mutex_lock( &manager->finishmutex );                
+            //pthread_cond_wait(&manager->finishwork, &manager->finishmutex);           
+            //pthread_mutex_unlock( &manager->finishmutex );
         }
     }
     
@@ -137,12 +137,12 @@ int main(int argc, char** argv)
         }
         printf("%i\n",manager.taskcounter);
         
-        pthread_cond_signal(&manager.finishwork);
+        //pthread_cond_signal(&manager.finishwork);
         
 
         while (manager.taskcounter > 0)
         {
-            pthread_cond_wait(&manager.taskcomplete, &manager.waitmutex);
+             pthread_cond_wait(&manager.taskcomplete, &manager.waitmutex);
         }
 
         
@@ -152,9 +152,9 @@ int main(int argc, char** argv)
     
   	for(int z = 0; z < manager.num_of_threads; z++)
   	{
-  	    printf("th %i",z);
-  	    pthread_detach(manager.threads[z]);
-  		//pthread_join(manager.threads[z], NULL);
+  	    //printf("th %i",z);
+  	    //pthread_detach(manager.threads[z]);
+  		pthread_join(manager.threads[z], NULL);
   	}
     
     
@@ -265,7 +265,6 @@ void WriteInFile(char* filename, vector<string> arr)
     for(int i=0; i<arr.size();i++)
     {
         out<<arr[i]<<endl;
-        i++;
     }
    
     out.close();
