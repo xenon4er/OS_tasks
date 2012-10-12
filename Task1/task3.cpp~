@@ -18,7 +18,7 @@ struct Task
 vector<string> ReadFromFile(char* filename);
 void printarr(vector<string> &arr);
 void simplemerge(vector<string> &arr, Task task);
-void mergesort(vector<string> &arr, Task task, vector<Task> &res);
+void createTask(vector<string> &arr, Task task, vector<Task> &res);
 void WriteInFile(char* filename, vector<string> arr);
 
 struct TaskManager
@@ -109,6 +109,7 @@ int main(int argc, char** argv)
      
  
     printf("start\n");
+    
     Task begin;
     begin.start = 0;
     begin.end = manager.arr.size();
@@ -116,7 +117,9 @@ int main(int argc, char** argv)
     vector<Task> TaskList;
     
     //create tasks
-    mergesort(manager.arr,begin, TaskList);
+    
+    createTask(manager.arr,begin, TaskList);
+    
     TaskList.push_back(begin);
     
     
@@ -218,7 +221,7 @@ void simplemerge(vector<string> &arr, Task task)
     //printarr(temp);
 }
 
-void mergesort(vector<string> &arr, Task task, vector<Task> &res)
+void createTask(vector<string> &arr, Task task, vector<Task> &res)
 {
     int len = task.end - task.start;
     //printf("len= %i ",len);
@@ -243,14 +246,13 @@ void mergesort(vector<string> &arr, Task task, vector<Task> &res)
     }
 }
 
-vector<string> ReadFromFile(char* filename)
+vector<int> ReadFromFile(char* filename)
 {
-    vector<string> res;
+    vector<int> res;
     ifstream fs;
-    //int i = 1;
     fs.open(filename);
-    string s;
-    while (std::getline(fs, s))
+    int i;
+    while (std::getline(fs, i))
     {
         res.push_back(s);
     }
@@ -258,7 +260,7 @@ vector<string> ReadFromFile(char* filename)
     return res;
 }
 
-void WriteInFile(char* filename, vector<string> arr)
+void WriteInFile(char* filename, vector<int> arr)
 {
     ofstream out;
     out.open(filename);

@@ -1,4 +1,3 @@
-#include <pthread.h>
 #include <stdlib.h>
 #include <fstream>
 #include <vector>
@@ -6,258 +5,295 @@
 #include <queue>
 #include <string>
 
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/sem.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
 using namespace std;
+
+
 
 struct Task
 {
     int start;
     int middle;
     int end;
+    int finish;
 };
-
-vector<string> ReadFromFile(char* filename);
-void printarr(vector<string> &arr);
-void simplemerge(vector<string> &arr, Task task);
-void mergesort(vector<string> &arr, Task task, vector<Task> &res);
-void WriteInFile(char* filename, vector<string> arr);
 
 struct TaskManager
-{
-    vector<string> arr;
-    queue<Task> tasks;
-    pthread_t *threads;
-    int taskcounter;
+{  
+    int num_of_process;
+    int sharm_id;
+    int pipes[2];
+    void* adr;
+    string** items;
+    int size_items;
     
-    pthread_mutex_t taskqueuemutex;
-    pthread_mutex_t waitmutex;
-    pthread_mutex_t finishmutex;
-      
-    pthread_cond_t taskcomplete;
-    pthread_cond_t finishwork;
-      
-    int num_of_threads;
-    bool finish;
+    int current_sem;
+    int work_sem;
+    int last_ind_sem;
+    
+    bool finish_work;
 };
 
-void *threadwork(void *data)
-{
-    TaskManager *manager = (TaskManager *)data;
-    while (! manager->finish)
-    {
-        pthread_mutex_lock( &manager->taskqueuemutex);
-        if (!manager->tasks.empty())
-        {
-            Task tk = manager->tasks.front();
-            manager->tasks.pop();
-            
-            pthread_mutex_unlock( &manager->taskqueuemutex );   
-            printf("%u \n",(unsigned int)pthread_self());
-            simplemerge(manager->arr, tk);   
-            
-            pthread_mutex_lock( &manager->waitmutex );   
-            manager->taskcounter--; 
-            pthread_cond_signal(&manager->taskcomplete); 
-            pthread_mutex_unlock( &manager->waitmutex );     
-        }
-        else
-        {
-            pthread_mutex_unlock( &manager->taskqueuemutex );        
-            //pthread_mutex_lock( &manager->finishmutex );                
-            //pthread_cond_wait(&manager->finishwork, &manager->finishmutex);           
-            //pthread_mutex_unlock( &manager->finishmutex );
-        }
-    }
-    
-}
+void ReadFromFile(char* filename, TaskManager &man);
+void simplemerge(TaskManager &man);
+void createTaskQueue(Task task, vector<Task> &res);
+//void WriteInFile(char* filename, vector<string> arr);
+void chWork(TaskManager &manager);
 
-void InitManager(TaskManager &manager)
-{
-    manager.waitmutex = PTHREAD_MUTEX_INITIALIZER;
-    manager.taskqueuemutex = PTHREAD_MUTEX_INITIALIZER;
-    manager.finishmutex = PTHREAD_MUTEX_INITIALIZER;
-
-    pthread_cond_init(&manager.taskcomplete, 0);
-    pthread_cond_init(&manager.finishwork, 0);    
-    
-    manager.threads = new pthread_t[manager.num_of_threads];
-    manager.finish = false;
-    int t;
-	for (t = 0; t < manager.num_of_threads; t++)
-	{
-
-		pthread_create(&manager.threads[t], NULL, threadwork, (void *)&manager);
-	}
-	
-	printf("init complited\n");
-    
-}
 
 int main(int argc, char** argv)
 {   
 
-
-    const int argLim = 4;
-    if (argc != argLim)
-    {
-        printf("usage: ./sort <input> <output> <num of thread>");
-        return 0;
-    }
-    TaskManager manager;
-    manager.num_of_threads = atoi(argv[3]);
-    InitManager(manager);
-    manager.arr = ReadFromFile(argv[1]);
-     
- 
-    printf("start\n");
-    Task begin;
-    begin.start = 0;
-    begin.end = manager.arr.size();
+   const int argLim = 4;
+   if (argc != argLim)
+   {
+       printf("usage: ./sort <input> <output> <num of thread>");
+       return 0;
+   }
     
-    vector<Task> TaskList;
+   TaskManager manager;
+   manager.num_of_process = atoi(argv[3]);
+   ReadFromFile(argv[1], manager);
+   manager.last_ind_sem = 0;
+   manager.current_sem = 0;
+	manager.finish_work = false;
+	
+ 	
+   printf("start\n");
     
-    //create tasks
-    mergesort(manager.arr,begin, TaskList);
-    TaskList.push_back(begin);
-    
-    
-    int k = 0;
-
-    while ( k < TaskList.size())
-    {
-        manager.taskcounter = 0;
-        
-        int old = TaskList[k].end - TaskList[k].start;
-        
-        while (( k < TaskList.size()) && (TaskList[k].end - TaskList[k].start == old))
-        {
-            manager.tasks.push(TaskList[k]);
-            manager.taskcounter++;
-            old = TaskList[k].end - TaskList[k].start;
-            k++;
-        }
-        printf("%i\n",manager.taskcounter);
-        
-        //pthread_cond_signal(&manager.finishwork);
-        
-
-        while (manager.taskcounter > 0)
-        {
-             pthread_cond_wait(&manager.taskcomplete, &manager.waitmutex);
-        }
-
-        
-    }
-    manager.finish = true;
-    printf("before join\n");
-    
-  	for(int z = 0; z < manager.num_of_threads; z++)
-  	{
-  	    //printf("th %i",z);
-  	    //pthread_detach(manager.threads[z]);
-  		pthread_join(manager.threads[z], NULL);
-  	}
-    
-    
-    
-    printarr(manager.arr);
-    WriteInFile(argv[2], manager.arr);    
-    printf("the end\n");
-    return 0;
+   struct Task begin;
+   begin.start = 0;
+   begin.end = manager.size_items;
+   begin.finish = 0; 
+   vector<Task> TaskList;
+   pipe(manager.pipes);
+   createTaskQueue(begin, TaskList);
+   
+   begin.finish = 0;
+   TaskList.push_back(begin);
+   //write(manager.pipes[1], &begin, sizeof(Task));
+   
+   for(int i=0;i<TaskList.size();i++)
+   {
+   	printf("s=%i e=%i ",TaskList[i].start,TaskList[i].end);
+   	if (TaskList[i].finish == 1) 
+   	{
+   		printf("true\n");
+   	}
+   	else printf("false\n");
+   }
+   
+	//return 0;
+	// create sem
+	manager.work_sem = semget(IPC_PRIVATE, 1, 0666);
+	chWork(manager);
+	
+	int k =0;
+	while (k<TaskList.size())
+	{
+		int count = 0;
+		int old = TaskList[k].end - TaskList[k].start;	
+		while((k<TaskList.size())&&(TaskList[k].end - TaskList[k].start == old))
+		{
+			write(manager.pipes[1], &TaskList[k], sizeof(Task));
+			k++;
+			count++;
+			old = TaskList[k].end - TaskList[k].start;
+		}
+		
+		struct sembuf buf;
+		buf.sem_num = manager.current_sem;
+		buf.sem_op = -count;
+		buf.sem_flg = 0;//SEM_UNDO; 
+		printf("!!!!!!!!!%i\n",buf.sem_op);
+		if((semop(manager.work_sem, &buf, 1)) < 0) {
+			perror("semop");
+			exit(EXIT_FAILURE);
+		}
+		
+		
+		//manager.last_ind_sem += count;
+		
+	}
+	
+	
+   //del sem
+   semctl(manager.work_sem, 0, IPC_RMID);
+   sleep(1);
+   manager.adr = shmat(manager.sharm_id,0,0);
+   		manager.items = (string **)manager.adr;
+			for(int i =0; i<manager.size_items; i++)
+			{
+				printf("%s\n",manager.items[i]->c_str());
+			}
+		
+			shmdt(manager.adr); 
+   printf("the end\n");
+   return 0;
 }
 
-void simplemerge(vector<string> &arr, Task task)
+void chWork(TaskManager &manager)
 {
-    vector<string> temp;
-    task.middle = task.start + (task.end - task.start)/2;
-    
-    
-    string tmp;
-    
-    int first = task.start; 
-    int second = task.middle;
-    while ((task.middle > first) && (task.end > second))
-    {
-        //printf("f=%i s=%i a1=%s a2=%s\n", first, second, arr[first].c_str(), arr[second].c_str());
-        if (arr[first] > arr[second])
-        {
-            tmp = arr[second];
-            for(int i=0; second-i>first;i++)
-            {
-                arr[second-i] = arr[second-i-1];
-            }
-            arr[first] = tmp;
-            task.middle++;
-            //temp.push_back(arr[second]);
-            second++;
-        }       
-        else
-        {
-            //temp.push_back(arr[first]);
-            first++;
-        }
-        
-        //printarr(temp);
-    }
-    
-    /*
-    if (task.middle > first)
-    {
-        for (int i = first; i < task.middle; i++)
-            temp.push_back(arr[i]);
-    }
-    else
-    {
-        for (int i = second; i < task.end; i++)
-            temp.push_back(arr[i]);
-    }
-    for (int i = task.start; i < task.end; i++)
-    {
-        arr[i] = temp[i - task.start];
-    }
-    */
-    //printarr(temp);
+	for (int i = 0; i < manager.num_of_process; i++)
+	{
+		pid_t cid = fork();
+		if (cid  == 0)
+		{
+			printf("%i = %i\n",i,cid);
+			simplemerge(manager);
+			exit(0);
+			
+		} else if(cid == 1)
+		{
+			
+		}
+	}
 }
 
-void mergesort(vector<string> &arr, Task task, vector<Task> &res)
+
+void simplemerge(TaskManager &manager)
+{
+	Task task;
+	read(manager.pipes[0],&task,sizeof(Task));
+	while(!manager.finish_work)
+	{
+		
+		 task.middle = task.start + (task.end - task.start)/2;
+		  //printf("st = %i end = %i\n",task.start, task.end );
+		 
+		 string *tmp;
+		 
+		 int first = task.start; 
+		 int second = task.middle;
+
+		 manager.adr = shmat(manager.sharm_id,0,0);
+		 manager.items = (string **)manager.adr;
+		 
+		 while ((task.middle > first) && (task.end > second))
+		 {
+		   
+		   	string *s1 = manager.items[first];
+		 		string *s2 = manager.items[second]; 
+				if (*s1 > *s2)
+		      {
+		     		
+		         tmp = manager.items[second];
+		         for(int i=0; second-i>first;i++)
+		         {
+		             manager.items[second-i] = manager.items[second-i-1];
+		         }
+		         manager.items[first] = tmp;
+		         task.middle++;
+		         second++;
+		     }       
+		     else
+		     {
+		         first++;
+		     }
+		     
+    		}
+    		shmdt(manager.adr);
+    		
+    		struct sembuf buf;
+			buf.sem_num = manager.current_sem;
+			buf.sem_op = 1;
+			buf.sem_flg = IPC_NOWAIT; 
+			if((semop(manager.work_sem, &buf, 1)) < 0) {
+				perror("semop1");
+				exit(EXIT_FAILURE);
+			}
+			
+    		//printf("inc\n");
+    		if(task.finish == 1)
+    		{
+    			 manager.finish_work = true;
+    			 return;
+    		}	
+    		read(manager.pipes[0],&task,sizeof(Task));
+    		if(task.finish) printf("ffff!!!\n");
+    }
+}
+
+void createTaskQueue(Task task, vector<Task> &res)
 {
     int len = task.end - task.start;
-    //printf("len= %i ",len);
+    task.finish = 0;
     const int lenLim = 2;
     if (len > lenLim)
     {
         
         int middle = task.start + len/2;
         
-        Task left;
+        struct Task left;
         left.start = task.start;
         left.end = middle;
-        Task right;
+        left.finish = task.finish;
+        
+        struct Task right;
         right.start = middle;
         right.end = task.end;
+        left.finish = task.finish;
+        
+        
        
-        mergesort(arr, left, res);
-        mergesort(arr, right, res);                  
+        createTaskQueue(left, res);
+        createTaskQueue(right, res);                  
+        
         res.push_back(left);
+        printf("lef was add    %i  %i ", left.start, left.end);
+        if (left.finish) 
+   	  {
+   		 printf("true\n");
+   	  }
+   	  else printf("false\n");
         res.push_back(right);
-
+			printf("right was add %i  %i ", right.start, right.end);
+			if (left.finish) 
+   	  {
+   		 printf("true\n");
+   	  }
+   	  else printf("false\n");
     }
 }
 
-vector<string> ReadFromFile(char* filename)
+void ReadFromFile(char* filename, TaskManager &man)
 {
-    vector<string> res;
-    ifstream fs;
-    //int i = 1;
-    fs.open(filename);
-    string s;
-    while (std::getline(fs, s))
-    {
-        res.push_back(s);
-    }
-    fs.close();
-    return res;
+   vector<string*> arr;
+   ifstream fs;
+    
+   fs.open(filename);
+   string* s = new string();
+   while (std::getline(fs, *s))
+   {
+       arr.push_back(s);
+       s = new string();
+   }
+   fs.close();
+    
+   man.size_items = arr.size();
+   int size_memory = sizeof(string *) * man.size_items;
+	man.sharm_id = shmget(IPC_PRIVATE, size_memory, 0666);
+	
+	man.adr = shmat(man.sharm_id,0,0);
+	man.items = (string **)man.adr;
+    
+   for(int i = 0; i<man.size_items;i++)
+   {
+   	man.items[i] = arr[i];
+   	//printf("%s\n",man.items[i]->c_str());
+   }
+   int q = shmdt(man.adr);
+   
+   printf("good\n");
 }
 
+/*
 void WriteInFile(char* filename, vector<string> arr)
 {
     ofstream out;
@@ -277,4 +313,4 @@ void printarr(vector<string> &arr)
         printf("%i %s\n", i, arr[i].c_str());
     }
 }
-
+*/
