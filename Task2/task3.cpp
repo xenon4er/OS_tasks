@@ -37,14 +37,15 @@ struct TaskManager
     int work_sem;
     int last_ind_sem;
     
-    bool finish_work;
+    int finish_work;
+    int taskcount;
 };
 
 void ReadFromFile(char* filename, TaskManager &man);
 void simplemerge(TaskManager &man);
-void createTaskQueue(Task task, vector<Task> &res);
+void createTaskQueue(TaskManager &manager, Task task);
 //void WriteInFile(char* filename, vector<string> arr);
-void chWork(TaskManager &manager);
+void chWork(TaskManager &manager, Task task);
 
 
 int main(int argc, char** argv)
@@ -62,8 +63,8 @@ int main(int argc, char** argv)
    ReadFromFile(argv[1], manager);
    manager.last_ind_sem = 0;
    manager.current_sem = 0;
-	manager.finish_work = false;
-	
+	manager.finish_work = 0;
+	manager.taskcount = 0;
  	
    printf("start\n");
     
@@ -73,10 +74,12 @@ int main(int argc, char** argv)
    begin.finish = 0; 
    vector<Task> TaskList;
    pipe(manager.pipes);
-   createTaskQueue(begin, TaskList);
    
-   begin.finish = 0;
-   TaskList.push_back(begin);
+   
+   //createTaskQueue(begin, TaskList);
+   
+   
+   //TaskList.push_back(begin);
    //write(manager.pipes[1], &begin, sizeof(Task));
    
    for(int i=0;i<TaskList.size();i++)
@@ -92,8 +95,8 @@ int main(int argc, char** argv)
 	//return 0;
 	// create sem
 	manager.work_sem = semget(IPC_PRIVATE, 1, 0666);
-	chWork(manager);
-	
+	chWork(manager, begin);
+	/*
 	int k =0;
 	while (k<TaskList.size())
 	{
@@ -124,22 +127,41 @@ int main(int argc, char** argv)
 	
 	
    //del sem
+   */
    semctl(manager.work_sem, 0, IPC_RMID);
+ 
    sleep(1);
    manager.adr = shmat(manager.sharm_id,0,0);
-   		manager.items = (string **)manager.adr;
-			for(int i =0; i<manager.size_items; i++)
-			{
-				printf("%s\n",manager.items[i]->c_str());
-			}
-		
-			shmdt(manager.adr); 
+		manager.items = (string **)manager.adr;
+		for(int i =0; i<manager.size_items; i++)
+		{
+			printf("%s\n",manager.items[i]->c_str());
+		}
+	
+		shmdt(manager.adr); 
    printf("the end\n");
    return 0;
 }
 
-void chWork(TaskManager &manager)
+void chWork(TaskManager &manager, Task task)
 {
+
+	pid_t cid = fork();
+		if (cid  == 0)
+		{
+			//printf("%i = %i\n",i,cid);
+			//simplemerge(manager);
+			createTaskQueue(manager, task);
+			write(manager.pipes[1],&task,sizeof(Task));
+			printf("+++++++++++++++++++++++++++\n");
+			exit(0);
+			
+			
+		} else if(cid == 1)
+		{
+			
+		}
+	
 	for (int i = 0; i < manager.num_of_process; i++)
 	{
 		pid_t cid = fork();
@@ -149,11 +171,13 @@ void chWork(TaskManager &manager)
 			simplemerge(manager);
 			exit(0);
 			
-		} else if(cid == 1)
+			
+		}  if(cid == 1)
 		{
 			
 		}
 	}
+	
 }
 
 
@@ -212,7 +236,7 @@ void simplemerge(TaskManager &manager)
     		//printf("inc\n");
     		if(task.finish == 1)
     		{
-    			 manager.finish_work = true;
+    			 manager.finish_work = 1;
     			 return;
     		}	
     		read(manager.pipes[0],&task,sizeof(Task));
@@ -220,8 +244,9 @@ void simplemerge(TaskManager &manager)
     }
 }
 
-void createTaskQueue(Task task, vector<Task> &res)
-{
+void createTaskQueue(TaskManager &manager, Task task)
+{  
+	
     int len = task.end - task.start;
     task.finish = 0;
     const int lenLim = 2;
@@ -242,9 +267,27 @@ void createTaskQueue(Task task, vector<Task> &res)
         
         
        
-        createTaskQueue(left, res);
-        createTaskQueue(right, res);                  
+        createTaskQueue(manager, left );
+        createTaskQueue(manager, right);                  
         
+        write(manager.pipes[1], &left, sizeof(Task));
+        write(manager.pipes[1], &right, sizeof(Task));
+       
+      
+      if(right)
+      {
+		   struct sembuf buf;
+			buf.sem_num = manager.current_sem;
+			buf.sem_op = -manager.taskcount;
+			buf.sem_flg = 0;//SEM_UNDO; 
+			printf("!!!!!!!!!%i\n",buf.sem_op);
+			if((semop(manager.work_sem, &buf, 1)) < 0) {
+				perror("semop");
+				exit(EXIT_FAILURE);
+			}
+			manager.taskcount = 0;
+		}
+        /*
         res.push_back(left);
         printf("lef was add    %i  %i ", left.start, left.end);
         if (left.finish) 
@@ -252,13 +295,14 @@ void createTaskQueue(Task task, vector<Task> &res)
    		 printf("true\n");
    	  }
    	  else printf("false\n");
-        res.push_back(right);
+        /.push_back(right);
 			printf("right was add %i  %i ", right.start, right.end);
 			if (left.finish) 
    	  {
    		 printf("true\n");
    	  }
    	  else printf("false\n");
+   	  */
     }
 }
 
