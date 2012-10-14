@@ -63,7 +63,7 @@ int main(int argc, char** argv)
    manager.num_of_process = atoi(argv[3]);
    ReadFromFile(argv[1], manager);
    manager.last_ind_sem = 0;
-   manager.current_sem = 1;
+   manager.current_sem = 0;
 	manager.finish_work = 0;
 	manager.taskcount = 0;
 	manager.old_len = 2;
@@ -73,74 +73,73 @@ int main(int argc, char** argv)
    struct Task begin;
    begin.start = 0;
    begin.end = manager.size_items;
-   begin.finish = 0; 
+   begin.finish = 1; 
    vector<Task> TaskList;
    pipe(manager.pipes);
    
    
-   //createTaskQueue(begin, TaskList);
-   
-   
-   //TaskList.push_back(begin);
-   //write(manager.pipes[1], &begin, sizeof(Task));
-   
-   for(int i=0;i<TaskList.size();i++)
-   {
-   	printf("s=%i e=%i ",TaskList[i].start,TaskList[i].end);
-   	if (TaskList[i].finish == 1) 
-   	{
-   		printf("true\n");
-   	}
-   	else printf("false\n");
-   }
-   
-	//return 0;
 	// create sem
 	manager.work_sem = semget(IPC_PRIVATE, 1, 0666);
+	printf("semop created\n");
 	chWork(manager, begin);
-	/*
-	int k =0;
-	while (k<TaskList.size())
+	
+	int k = 0;
+	int step = 2;
+	int i = 0;
+	Task task;
+	
+	while (step < manager.size_items)
 	{
-		int count = 0;
-		int old = TaskList[k].end - TaskList[k].start;	
-		while((k<TaskList.size())&&(TaskList[k].end - TaskList[k].start == old))
+		task.end = 0;
+		
+		while(task.end < manager.size_items)
 		{
-			write(manager.pipes[1], &TaskList[k], sizeof(Task));
-			k++;
-			count++;
-			old = TaskList[k].end - TaskList[k].start;
+			if((task.end + step) < manager.size_items)
+			{
+				task.start = task.end;
+				task.end = task.start + step;	
+			} else
+			{
+				task.start = task.end;
+				task.end = manager.size_items;	
+			}
+			printf("s = %i e = %i\n",task.start, task.end);
+			write(manager.pipes[1],&task,sizeof(Task));
+			manager.taskcount ++;	
 		}
+		
 		
 		struct sembuf buf;
 		buf.sem_num = manager.current_sem;
-		buf.sem_op = -count;
+		buf.sem_op =  - manager.taskcount;
 		buf.sem_flg = 0;//SEM_UNDO; 
-		printf("!!!!!!!!!%i\n",buf.sem_op);
+			
+		printf("sem_op = %i\n\n",buf.sem_op);
 		if((semop(manager.work_sem, &buf, 1)) < 0) {
 			perror("semop");
 			exit(EXIT_FAILURE);
 		}
+		manager.taskcount=0;
 		
-		
-		//manager.last_ind_sem += count;
-		
+		step *=2;
+		k++;
+			
 	}
-	
+	write(manager.pipes[1],&begin,sizeof(Task));
+	//return 0;
 	
    //del sem
-   */
-   semctl(manager.work_sem, 0, IPC_RMID);
- 
+   semctl(manager.work_sem, 1, IPC_RMID);
+	printf("semop closed\n"); 
    sleep(2);
    manager.adr = shmat(manager.sharm_id,0,0);
-		manager.items = (string **)manager.adr;
-		for(int i =0; i<manager.size_items; i++)
-		{
-			printf("%i = %s\n",i+1,manager.items[i]->c_str());
-		}
+	manager.items = (string **)manager.adr;
+	for(int i =0; i<manager.size_items; i++)
+	{
+		printf("%i = %s\n",i+1,manager.items[i]->c_str());
+	}
 	
-		shmdt(manager.adr); 
+	shmdt(manager.adr); 
    printf("the end\n");
    return 0;
 }
@@ -148,29 +147,15 @@ int main(int argc, char** argv)
 void chWork(TaskManager &manager, Task task)
 {
 
-	pid_t cid = fork();
-		if (cid  == 0)
-		{
-			//printf("%i = %i\n",i,cid);
-			//simplemerge(manager);
-			createTaskQueue(manager, task);
-			write(manager.pipes[1],&task,sizeof(Task));
-			printf("+++++++++++++++++++++++++++\n");
-			exit(0);
-			
-			
-		} else if(cid == 1)
-		{
-			
-		}
 	
 	for (int i = 0; i < manager.num_of_process; i++)
 	{
 		pid_t cid = fork();
 		if (cid  == 0)
 		{
-			printf("%i = %i\n",i,cid);
+			printf("%i = %i\n",i,getpid());
 			simplemerge(manager);
+			printf("child fin\n\n");
 			exit(0);
 			
 			
@@ -186,20 +171,13 @@ void chWork(TaskManager &manager, Task task)
 void simplemerge(TaskManager &manager)
 {
 	Task task;
-	task.finish = 0;
-	//read(manager.pipes[0],&task,sizeof(Task));
+	//task.finish = 0;
+	
+	read(manager.pipes[0],&task,sizeof(Task));
 	while(!manager.finish_work)
 	{
-		
-    	if(task.finish) printf("ffff!!!\n");
-		if(task.finish == 1)
-    		{
-    			 manager.finish_work = 1;
-    			 return;
-    		}	
-    	read(manager.pipes[0],&task,sizeof(Task));	
-		 task.middle = task.start + (task.end - task.start)/2;
-		  //printf("st = %i end = %i\n",task.start, task.end );
+		   		
+		task.middle = task.start + (task.end - task.start)/2;
 		 
 		 string *tmp;
 		 
@@ -233,7 +211,13 @@ void simplemerge(TaskManager &manager)
 		     
     		}
     		shmdt(manager.adr);
-    		/*
+    	
+    	if(task.finish == 1)
+    	{
+    		 manager.finish_work = 1;
+    		 return;
+    	}
+    		
     		struct sembuf buf;
 			buf.sem_num = manager.current_sem;
 			buf.sem_op = 1;
@@ -242,8 +226,12 @@ void simplemerge(TaskManager &manager)
 				perror("semop1");
 				exit(EXIT_FAILURE);
 			}
-			*/
-    		//printf("inc\n");
+			
+    		printf("inc\n");
+    	
+    	read(manager.pipes[0],&task,sizeof(Task));	
+    	if(task.finish == 1) printf("\nfinish task!!!\n\n");
+		
     		
     }
 }
@@ -274,51 +262,35 @@ void createTaskQueue(TaskManager &manager, Task task)
         createTaskQueue(manager, left );
         createTaskQueue(manager, right);                  
         
-        
-		
-		/*
+      printf("taskcount = %i\n",manager.taskcount);      
       
       if((right.end - right.start) != manager.old_len)
       {
       	printf("old = %i now = %i\n",manager.old_len, right.end - right.start);
       	manager.old_len = right.end - right.start;
+		   
 		   struct sembuf buf;
 			buf.sem_num = manager.current_sem;
-			buf.sem_op = -manager.taskcount;
+			buf.sem_op =  - manager.taskcount;
 			buf.sem_flg = 0;//SEM_UNDO; 
-			printf("sem_op = %i\n",buf.sem_op);
+			
+			printf("sem_op = %i\n\n",buf.sem_op);
 			if((semop(manager.work_sem, &buf, 1)) < 0) {
 				perror("semop");
 				exit(EXIT_FAILURE);
 			}
+			
 			manager.taskcount = 0;
 			
 		}
-		*/
-		//sleep(2);
 		
 		write(manager.pipes[1], &left, sizeof(Task));
       printf("lef was add    %i  %i \n", left.start, left.end);
-        write(manager.pipes[1], &right, sizeof(Task));
+      write(manager.pipes[1], &right, sizeof(Task));
 		printf("right was add %i  %i \n", right.start, right.end);
-		manager.taskcount+=2; 
 		
-        /*
-        res.push_back(left);
-        printf("lef was add    %i  %i ", left.start, left.end);
-        if (left.finish) 
-   	  {
-   		 printf("true\n");
-   	  }
-   	  else printf("false\n");
-        /.push_back(right);
-			printf("right was add %i  %i ", right.start, right.end);
-			if (left.finish) 
-   	  {
-   		 printf("true\n");
-   	  }
-   	  else printf("false\n");
-   	  */
+		manager.taskcount+=2; 
+		      
     }
 }
 
@@ -352,6 +324,10 @@ void ReadFromFile(char* filename, TaskManager &man)
    
    printf("good\n");
 }
+
+
+
+
 
 /*
 void WriteInFile(char* filename, vector<string> arr)
