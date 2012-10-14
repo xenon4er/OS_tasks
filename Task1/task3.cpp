@@ -119,7 +119,12 @@ int main(int argc, char** argv)
     mergesort(manager.arr,begin, TaskList);
     TaskList.push_back(begin);
     
+    for(int i=0; i<TaskList.size();i++)
+    {
+    	printf("s = %i e = %i\n",TaskList[i].start,TaskList[i].end );
+    }
     
+    return 0;
     int k = 0;
 
     while ( k < TaskList.size())
